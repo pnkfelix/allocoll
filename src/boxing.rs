@@ -34,6 +34,8 @@ impl<T, A: Alloc> InPlace<T> for InterimBox<T, A> {
     type Owner = Box<T, A>;
     unsafe fn finalize(mut self) -> Box<T, A> {
         println!("start of InterimBox::finalize");
+        // The use of mem::forget below makes it unnecessary
+        // to do the replace with mem::dropped here.
         let p = mem::replace(&mut self.p, mem::uninitialized());
         let a = mem::replace(&mut self.a, mem::uninitialized());
         mem::forget(self);
