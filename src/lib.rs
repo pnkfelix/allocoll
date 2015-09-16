@@ -10,7 +10,7 @@
 
 extern crate alloc as alloc_crate;
 
-extern crate allocprint;
+// extern crate allocprint;
 
 pub mod alloc;
 pub mod raw_vec;
