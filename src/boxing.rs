@@ -9,14 +9,14 @@ pub struct Boxing<A:Alloc>(pub A);
 impl<T, A:Alloc> Placer<T> for Boxing<A> {
     type Place = InterimBox<T, A>;
     fn make_place(mut self) -> InterimBox<T, A> {
-        // println!("start of <Boxing as Placer>::make_place");
+        println!("start of <Boxing as Placer>::make_place");
         let ret = unsafe {
             InterimBox {
                 p: self.0.alloc(Kind::new::<T>()) as *mut T,
                 a: self.0
             }
         };
-        // println!("at end of <Boxing as Placer>::make_place");
+        println!("at end of <Boxing as Placer>::make_place");
         ret
     }
 }

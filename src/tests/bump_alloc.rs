@@ -43,13 +43,13 @@ pub struct Alloc {
 
 impl Drop for Alloc {
     fn drop(&mut self) {
-        println!("  bump_alloc::Alloc::drop");
+        println!("  bump_alloc::Alloc::drop: 0x{:x}", self as *mut Alloc as usize);
     }
 }
 
 impl Drop for AllocState {
     fn drop(&mut self) {
-        println!("  bump_alloc::AllocState::drop");
+        println!("    bump_alloc::AllocState::drop: 0x{:x}", self as *mut _ as usize);
     }
 }
 
