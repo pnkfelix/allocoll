@@ -17,7 +17,7 @@ pub struct Excess(Address, Capacity);
 ///
 /// An instance of `Kind` describes a particular layout of memory.
 /// You build a `Kind` up as an input to give to an allocator.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Kind {
     size: Size,
     align: Alignment,
@@ -50,6 +50,52 @@ impl Kind {
         Kind { size: size, align: align }
     }
 
+}
+
+// public constructor methods
+impl Kind {
+    /// Creates a `Kind` describing the record for a single instance of `T`.
+    pub fn new<T>() -> Kind {
+        Kind::new_internal::<T>()
+    }
+
+    /// Creates a `Kind` describing the record for `self` followed by
+    /// `next` with no additional padding between the two. Since no
+    /// padding is inserted, the alignment of `next` is irrelevant,
+    /// and is not incoporated *at all* into the resulting `Kind`.
+    ///
+    /// Returns `(k, offset)`, where `k` is kind of the concatenated
+    /// record and `offset` is the start of the `next` embedded witnin
+    /// the concatenated record (assuming that the record itself
+    /// starts at offset 0).
+    ///
+    /// (The `offset` is always the same as `self.size()`; we use this
+    ///  signature out of convenience in matching the signature of
+    ///  `Kind::extend`.)
+    pub fn extend_packed(self, next: Kind) -> (Kind, usize) {
+        let new_size = self.size + next.size;
+        (Kind { size: new_size, ..self }, self.size)
+    }
+
+    /// Creates a `Kind` describing the record that can hold a value
+    /// of the same kind as `self`, but that also is aligned to
+    /// alignment `align`.
+    ///
+    /// If `self` already meets the prescribed alignment, then returns
+    /// `self`.
+    ///
+    /// Note that this method does not add any padding to the overall
+    /// size, regardless of whether the returned kind has a different
+    /// alignment. You should be able to get that effect by passing
+    /// an appropriately aligned zero-sized type to `Kind::extend`.
+    pub fn align_to(self, align: usize) -> Kind {
+        if align > self.align {
+            Kind { align: align, ..self }
+        } else {
+            self
+        }
+    }
+
     /// Returns the amount of padding we must insert after `self`
     /// to ensure that the following address will satisfy `align`.
     ///
@@ -64,34 +110,23 @@ impl Kind {
         let len_rounded_up = (len + align - 1) & !(align - 1);
         return len_rounded_up - len;
     }
-}
-
-// public constructor methods
-impl Kind {
-    /// Creates a `Kind` describing the record for a single instance of `T`.
-    pub fn new<T>() -> Kind {
-        Kind::new_internal::<T>()
-    }
-
-    /// Creates a `Kind` describing the record for `self` followed by
-    /// `next` with no additional padding between the two. Since no
-    /// padding is inserted, the alignment of `next` is irrelevant,
-    /// and is not incoporated *at all* into the resulting `Kind`.
-    pub fn extend_packed(self, next: Kind) -> Kind {
-        let new_size = self.size + next.size;
-        Kind { size: new_size, ..self }
-    }
 
     /// Creates a `Kind` describing the record for `self` followed by
     /// `next`, including any necessary padding to ensure that `next`
     /// will be properly aligned. Note that the result `Kind` will
     /// satisfy the alignment properties of both `self` and `next`.
-    pub fn extend(self, next: Kind) -> Kind {
+    ///
+    /// Returns `(k, offset)`, where `k` is kind of the concatenated
+    /// record and `offset` is the start of the `next` embedded witnin
+    /// the concatenated record (assuming that the record itself
+    /// starts at offset 0).
+    pub fn extend(self, next: Kind) -> (Kind, usize) {
         let new_align = cmp::max(self.align, next.align);
         let realigned = Kind { align: new_align, ..self };
         let pad = realigned.pad_to(new_align);
-        let new_size = self.size + pad + next.size;
-        Kind { size: new_size, align: new_align }
+        let offset = self.size + pad;
+        let new_size = offset + next.size;
+        (Kind { size: new_size, align: new_align }, offset)
     }
 
     /// Creates a `Kind` describing the record for `n` instances of
@@ -114,6 +149,10 @@ pub struct AllocError;
 // See https://github.com/pnkfelix/rfcs/blob/fsk-allocator-rfc/active/0000-allocator.md
 // for tons of documentation for the old API.
 pub trait Alloc {
+    /// Any activity done by the `oom` method must not allocate
+    /// from `self` (otherwise you essentially infinite regress).
+    unsafe fn oom(&mut self) -> ! { ::std::intrinsics::abort() }
+
     unsafe fn alloc(&mut self, kind: Kind) -> Address;
     unsafe fn dealloc(&mut self, ptr: Address, kind: Kind);
 
