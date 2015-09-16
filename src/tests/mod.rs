@@ -6,14 +6,12 @@ mod bump_alloc;
 
 use boxing::Boxing;
 
-#[cfg(not_now)]
 #[test]
 fn demo_direct_in_place() {
     let std = direct_alloc::Alloc;
     let b = in Boxing(std) { 3 };
     println!("at end of demo_direct b: {:?}", b);}
 
-#[cfg(not_now)]
 #[test]
 fn demo_bump_calls() {
     use std::ptr::Unique;
@@ -29,8 +27,13 @@ fn demo_bump_calls() {
 
 #[test]
 fn demo_bump_in_place() {
-    let bmp = bump_alloc::Alloc::new(4*1024*1024);
-    let b = in Boxing(bmp) { 3 };
-    println!("at end of demo_direct b: {:?}", b);
-    // ::std::mem::forget(b);
+    {
+        println!("start of demo_bump_in_place");
+        let bmp = bump_alloc::Alloc::new(4*1024*1024);
+        let b = in Boxing(bmp) { 3 };
+        println!("at end of dump_bump_in_place alloc scope b: {:?} 0x{:x}",
+                 b, &*b as *const _ as usize);
+        // ::std::mem::forget(b);
+    }
+    println!("at end of demo_bump_in_place");
 }
