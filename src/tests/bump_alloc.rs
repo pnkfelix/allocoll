@@ -26,6 +26,7 @@ use super::direct_alloc;
 
 use std::rc::Rc;
 use std::cell::Cell;
+use std::marker::PhantomData;
 
 const MIN_ALIGN: u32 = 16;
 const MAX_LEN: u32 = 4 * 1024 * 1024;
@@ -37,11 +38,12 @@ struct AllocState {
 }
 
 #[derive(Clone)]
-pub struct Alloc {
+pub struct Alloc<'a> {
     state: Rc<AllocState>,
+    _a: PhantomData<Fn() -> &'a Alloc<'a>>,
 }
 
-impl Drop for Alloc {
+impl<'a> Drop for Alloc<'a> {
     fn drop(&mut self) {
         println!("  bump_alloc::Alloc::drop: 0x{:x}", self as *mut Alloc as usize);
     }
@@ -53,8 +55,8 @@ impl Drop for AllocState {
     }
 }
 
-impl Alloc {
-    pub fn new(len: u32) -> Alloc {
+impl<'a> Alloc<'a> {
+    pub fn new(len: u32) -> Alloc<'a> {
         println!("  bump_alloc::Alloc::new bump len: {:?}", len);
         if len > MAX_LEN {
             panic!("cannot make bump_alloc len={}; max is {}",
@@ -67,7 +69,8 @@ impl Alloc {
             Alloc {
                 state: Rc::new(AllocState { block: p,
                                             limit: p.offset(len as isize),
-                                            cursor: Cell::new(p) })
+                                            cursor: Cell::new(p) }),
+                _a: PhantomData,
             }
         }
     }
@@ -77,7 +80,7 @@ fn roundup_size(size: i32) -> i32 {
     size + (MIN_ALIGN as i32) & !((MIN_ALIGN as i32)-1)
 }
 
-impl alloc::Alloc for Alloc {
+impl<'a> alloc::Alloc for Alloc<'a> {
     #[inline]
     unsafe fn alloc(&mut self, kind: alloc::Kind) -> alloc::Address {
         println!("  bump_alloc::Alloc::alloc bump kind: {:?}", kind);

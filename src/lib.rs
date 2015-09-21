@@ -16,9 +16,7 @@ pub mod alloc;
 pub mod raw_vec;
 pub mod boxed;
 pub mod boxing;
-pub mod btree {
-    mod node;
-}
+// pub mod btree { mod node; }
 
 #[cfg(test)]
 mod tests;

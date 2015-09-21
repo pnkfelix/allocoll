@@ -43,10 +43,8 @@ impl<T: ?Sized, A:Alloc> Drop for Box<T, A> {
     fn drop(&mut self) {
         unsafe {
             println!("starting boxed::Box::drop for 0x{:x}", self as *mut _ as usize);
-            let s = mem::size_of_val(self.value.get());
-            let a = mem::align_of_val(self.value.get());
             intrinsics::drop_in_place(&**self.value as *const T as *mut T);
-            let k = Kind::from_size_align(s, a);
+            let k = Kind::for_value(self.value.get());
             let mut a = mem::replace(&mut self.alloc, mem::dropped());
             a.dealloc(*self.value as *mut u8, k);
             drop(a);

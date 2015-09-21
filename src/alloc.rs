@@ -8,8 +8,6 @@ pub type Size = usize;
 pub type Capacity = usize;
 pub type Alignment = usize;
 
-pub unsafe trait Raw { }
-unsafe impl Raw for .. { }
 pub type Address = *mut u8;
 pub struct Excess(Address, Capacity);
 
@@ -46,7 +44,7 @@ impl Kind {
         Kind { size: size, align: align }
     }
 
-    pub unsafe fn from_size_align(size: usize, align: usize) -> Kind {
+    unsafe fn from_size_align(size: usize, align: usize) -> Kind {
         Kind { size: size, align: align }
     }
 
@@ -57,6 +55,10 @@ impl Kind {
     /// Creates a `Kind` describing the record for a single instance of `T`.
     pub fn new<T>() -> Kind {
         Kind::new_internal::<T>()
+    }
+
+    pub unsafe fn for_value<T: ?Sized>(t: &T) -> Kind {
+        Kind::from_size_align(mem::size_of_val(t), mem::align_of_val(t))
     }
 
     /// Creates a `Kind` describing the record for `self` followed by
@@ -160,15 +162,15 @@ pub trait Alloc {
         SuperAlloc::usable_size(self, kind)
     }
 
-    unsafe fn alloc_one<T:Raw>(&mut self) -> Result<Unique<T>, AllocError> {
+    unsafe fn alloc_one<T>(&mut self) -> Result<Unique<T>, AllocError> {
         SuperAlloc::alloc_one(self)
     }
 
-    unsafe fn dealloc_one<T:Raw>(&mut self, ptr: Unique<T>) {
+    unsafe fn dealloc_one<T>(&mut self, ptr: Unique<T>) {
         SuperAlloc::dealloc_one(self, ptr)
     }
 
-    unsafe fn alloc_array<T:Raw>(&mut self, n: usize) -> Result<Unique<T>, AllocError> {
+    unsafe fn alloc_array<T>(&mut self, n: usize) -> Result<Unique<T>, AllocError> {
         SuperAlloc::alloc_array(self, n)
     }
 
@@ -187,9 +189,9 @@ pub trait Alloc {
 
 pub trait SuperAlloc {
     unsafe fn usable_size(&self, kind: Kind) -> Capacity;
-    unsafe fn alloc_one<T:Raw>(&mut self) -> Result<Unique<T>, AllocError>;
-    unsafe fn dealloc_one<T:Raw>(&mut self, mut ptr: Unique<T>);
-    unsafe fn alloc_array<T:Raw>(&mut self, n: usize) -> Result<Unique<T>, AllocError>;
+    unsafe fn alloc_one<T>(&mut self) -> Result<Unique<T>, AllocError>;
+    unsafe fn dealloc_one<T>(&mut self, mut ptr: Unique<T>);
+    unsafe fn alloc_array<T>(&mut self, n: usize) -> Result<Unique<T>, AllocError>;
     unsafe fn alloc_excess(&mut self, kind: Kind) -> Excess;
     unsafe fn realloc(&mut self, ptr: Address, kind: Kind, new_size: Size) -> Address;
     unsafe fn realloc_excess(&mut self, ptr: Address, kind: Kind, new_size: Size) -> Excess;
@@ -200,16 +202,16 @@ impl<Self_:?Sized + Alloc> SuperAlloc for Self_ {
         kind.size
     }
 
-    unsafe fn alloc_one<T:Raw>(&mut self) -> Result<Unique<T>, AllocError> {
+    unsafe fn alloc_one<T>(&mut self) -> Result<Unique<T>, AllocError> {
         let p = self.alloc(Kind::new::<T>()) as *mut T;
         if !p.is_null() { Ok(Unique::new(p)) } else { Err(AllocError) }
     }
 
-    unsafe fn dealloc_one<T:Raw>(&mut self, mut ptr: Unique<T>) {
+    unsafe fn dealloc_one<T>(&mut self, mut ptr: Unique<T>) {
         self.dealloc(ptr.get_mut() as *mut T as *mut u8, Kind::new::<T>());
     }
 
-    unsafe fn alloc_array<T:Raw>(&mut self, n: usize) -> Result<Unique<T>, AllocError> {
+    unsafe fn alloc_array<T>(&mut self, n: usize) -> Result<Unique<T>, AllocError> {
         let p = self.alloc(Kind::new::<T>().array(n)) as *mut T;
         if !p.is_null() { Ok(Unique::new(p)) } else { Err(AllocError) }
     }
